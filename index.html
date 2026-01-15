@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>デジタル署名 & 電子証明書 体験ラボ</title>
+    <style>
+        :root {
+            --sender: #3b82f6;    /* 青: 送信者 */
+            --receiver: #8b5cf6;  /* 紫: 受信者 */
+            --hacker: #ef4444;    /* 赤: 改ざん者 */
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --hash-color: #f59e0b; /* オレンジ: ハッシュ値 */
+            --cert-bg: #e0f2fe;
+            --cert-border: #38bdf8;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container { max-width: 900px; margin: 0 auto; }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-top: 5px solid var(--sender);
+        }
+
+        h1 { margin: 0; font-size: 1.8em; }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            position: relative;
+            border-left: 6px solid #ccc;
+        }
+
+        .role-sender { border-left-color: var(--sender); }
+        .role-network { border-left-color: var(--hacker); background-color: #fef2f2; }
+        .role-receiver { border-left-color: var(--receiver); }
+
+        .step-badge {
+            background: #333; color: white;
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-weight: bold; margin-right: 10px;
+        }
+
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+        input[type="text"], input[type="number"], textarea {
+            width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;
+            font-size: 16px; box-sizing: border-box; font-family: monospace;
+        }
+
+        button {
+            border: none; padding: 10px 20px; border-radius: 6px;
+            cursor: pointer; font-size: 16px; font-weight: bold; transition: opacity 0.2s;
+            color: white; margin-top: 10px;
+        }
+        button:hover { opacity: 0.9; }
+        .btn-sender { background-color: var(--sender); }
+        .btn-hacker { background-color: var(--hacker); }
+        .btn-receiver { background-color: var(--receiver); }
+
+        /* データ可視化ボックス */
+        .data-box {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        .hash-val { color: var(--hash-color); font-weight: bold; font-size: 1.8em; }
+        .sign-val { color: var(--sender); font-weight: bold; font-size: 2.5em; line-height: 1; }
+        
+        /* 証明書カード */
+        .cert-card {
+            background: white;
+            border: 2px solid var(--cert-border);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        .cert-card::before {
+            content: "CERTIFICATE";
+            position: absolute;
+            top: 5px; right: -20px;
+            background: var(--cert-border);
+            color: white;
+            font-size: 0.6em;
+            padding: 2px 20px;
+            transform: rotate(45deg);
+        }
+        .cert-icon { font-size: 2.5em; display: block; margin-bottom: 5px; }
+
+        /* 配送パッケージ (Step 3) */
+        .transit-container {
+            display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px;
+        }
+        .transit-item {
+            flex: 1; min-width: 150px; background: white; padding: 15px 10px;
+            border-radius: 8px; border: 1px solid #ddd; text-align: center;
+        }
+        .transit-item label { text-align: left; margin-top: 5px; display: block; }
+        .transit-big-icon { font-size: 4em; display: block; margin-bottom: 5px; line-height: 1; }
+
+        /* Step 2: ハッシュ化のイメージ表現用 */
+        .hash-visual-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+            background: #fffbeb;
+            padding: 20px;
+            border-radius: 6px;
+        }
+        .hash-icon-box { text-align: center; }
+        .hash-icon-img { font-size: 3.5em; display: block; line-height: 1; margin-bottom: 5px; }
+        .hash-label { font-size: 1.1em; font-weight: bold; color: #444; }
+        .hash-arrow-box { text-align: center; color: #d97706; }
+
+        /* Step 2: 署名生成フロー用 */
+        .sign-flow-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .signature-icon-set {
+            font-size: 2.5em; margin-left: 15px; vertical-align: middle;
+        }
+
+        /* ========== Step 4: 検証図解用CSS ========== */
+        .visual-verification {
+            display: flex; align-items: stretch; justify-content: space-between;
+            margin-top: 20px; background: #f0f4f8; border-radius: 10px; padding: 20px; gap: 15px;
+        }
+        .verify-col {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            background: white; padding: 20px 10px; border-radius: 8px;
+            border: 2px solid transparent; position: relative;
+        }
+        .verify-col.left { border-color: #cbd5e1; }
+        .verify-col.left::before { content: "ルートA: 文書から"; position: absolute; top:-12px; background:#cbd5e1; padding:4px 12px; font-size:0.9em; border-radius:4px; font-weight:bold; color:#333; }
+        .verify-col.right { border-color: #86efac; }
+        .verify-col.right::before { content: "ルートB: 署名から"; position: absolute; top:-12px; background:#86efac; padding:4px 12px; font-size:0.9em; border-radius:4px; font-weight:bold; color:#064e3b; }
+        
+        .verify-icon { font-size: 3.5em; margin-bottom: 5px; display: block; }
+        .verify-top-label { font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 10px; }
+        .process-arrow { font-size: 2.5em; color: #94a3b8; margin: 5px 0; font-weight: bold; }
+
+        /* アクションバッジ */
+        .action-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 20px; border-radius: 50px;
+            color: white; font-weight: bold; font-size: 1.2em;
+            margin: 5px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .bg-hash { background-color: #ea580c; } /* オレンジ */
+        .bg-decrypt { background-color: #10b981; } /* 緑 */
+        
+        .badge-icon-circle {
+            background: white; width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #333; font-size: 1.2em; /* アイコンサイズ調整 */
+        }
+
+        /* 結果数値ボックス */
+        .verify-result-box {
+            background-color: #fef3c7; 
+            border-radius: 12px; padding: 15px 25px;
+            font-family: monospace; font-size: 2.2em; font-weight: bold;
+            color: #d97706; margin: 10px 0; min-width: 80px; text-align: center;
+        }
+        
+        .comparison-center {
+            display: flex; flex-direction: column; justify-content: center;
+            align-items: center; font-weight: bold; font-size: 1.4em; width: 60px;
+        }
+
+        /* 結果表示エリア */
+        .final-judgment {
+            margin-top: 20px; padding: 15px; border-radius: 8px;
+            text-align: center; font-weight: bold; display: none;
+        }
+        .judgment-ok { background-color: #dcfce7; border: 2px solid #22c55e; color: #15803d; font-size: 1.2em; }
+        .judgment-ng { background-color: #fee2e2; border: 2px solid #ef4444; color: #b91c1c; font-size: 1.2em; }
+
+        var {
+            font-style: normal; font-weight: bold; font-family: monospace;
+            background: #eee; padding: 0 4px; border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🐻 デジタル署名 & 電子証明書</h1>
+        <p>「このファイルは本物？」「本当にくまさんから？」<br>
+        ファイルと一緒に<strong style="color:var(--sender);">「電子証明書」</strong>を送ることで、安全性を証明できます。</p>
+    </div>
+
+    <div class="card role-sender">
+        <h2><span class="step-badge">1</span> 送信者（くま）: 鍵と証明書の発行</h2>
+        <p>認証局から「電子証明書（公開鍵入り）」を発行してもらいます。</p>
+
+        <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+            <div>
+                <label>素数 p</label>
+                <input type="number" id="p-val" value="17" style="width: 80px;">
+            </div>
+            <div>
+                <label>素数 q</label>
+                <input type="number" id="q-val" value="19" style="width: 80px;">
+            </div>
+            <button class="btn-sender" onclick="generateKeys()">鍵ペアを作成 & 証明書発行 🔑</button>
+        </div>
+
+        <div id="key-display" style="display: none; margin-top: 15px;">
+            <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+                <div class="data-box" style="flex: 1; border-left: 4px solid var(--sender);">
+                    <strong>🔒 くまの秘密鍵</strong><br>
+                    d=<span id="priv-key-d"></span>, n=<span id="priv-key-n"></span><br>
+                    <small>※ 絶対に秘密！署名に使います。</small>
+                </div>
+                
+                <div class="cert-card" style="flex: 1; min-width: 200px;">
+                    <span class="cert-icon">🪪</span>
+                    <strong>電子証明書</strong>
+                    <hr style="margin: 5px 0; border: 0; border-top: 1px solid #eee;">
+                    <div style="font-size: 0.9em; text-align: left; padding: 0 5px;">
+                        <div>所有者: <strong>くま</strong></div>
+                        <div>発行元: <strong>XYZ認証局</strong></div>
+                        <div style="background: #f0f9ff; padding: 3px; border-radius: 4px; margin-top: 3px; font-size:0.9em;">
+                            🔑 公開鍵: <br>
+                            e=<span id="pub-key-e" style="font-weight:bold;"></span>, n=<span id="pub-key-n" style="font-weight:bold;"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card role-sender">
+        <h2><span class="step-badge">2</span> 送信者: 文書作成と署名</h2>
+        <p>文書を作成し、秘密鍵で署名します。</p>
+
+        <div class="input-group">
+            <label>送りたいメッセージ</label>
+            <textarea id="message-input" rows="3">おげんきですか？くまより</textarea>
+        </div>
+
+        <button class="btn-sender" onclick="signMessage()">署名して送信パッケージを作る 📦</button>
+
+        <div id="sign-result" style="display: none;">
+            <div class="arrow-down" style="margin-bottom: 10px;">⬇</div>
+            <div class="data-box">
+                <div style="margin-bottom: 5px; font-weight: bold; font-size:1.2em;">1. ハッシュ化 (要約)</div>
+                
+                <div class="hash-visual-row">
+                    <div class="hash-icon-box">
+                        <span class="hash-icon-img">📄</span>
+                        <div class="hash-label">文書</div>
+                    </div>
+                    
+                    <div class="hash-arrow-box">
+                        <span style="font-size: 2.5em; display: block;">→</span>
+                        <span style="font-size: 3em; display: block; margin-top: -15px;">🌀</span>
+                        <small style="font-size: 0.9em; font-weight:bold; white-space: nowrap;">くしゃくしゃ</small>
+                    </div>
+                    
+                    <div class="hash-icon-box">
+                        <span class="hash-icon-img">📦</span>
+                        <div class="hash-label">ハッシュ</div>
+                    </div>
+                    
+                    <div style="font-size: 2em; margin-left: 10px; font-family: monospace; color: var(--hash-color);">
+                        = <span id="msg-hash"></span>
+                    </div>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px dashed #ccc; margin: 20px 0;">
+                
+                <div>
+                    <div style="font-weight: bold; margin-bottom: 10px; font-size:1.2em;">2. 署名生成 (秘密鍵dで暗号化):</div>
+                    
+                    <div class="sign-flow-row">
+                        <span style="font-size: 3em;">📦</span> 
+                        <span style="font-size: 2em;">→</span> 
+                        <span style="font-size: 2.5em;">🗝️</span> 
+                        <span style="font-size: 2em;">→</span>
+                        
+                        <div style="background: #eff6ff; padding: 10px 20px; border-radius: 12px; border: 2px solid #bfdbfe; display: flex; align-items: center;">
+                            <span id="digital-signature" class="sign-val"></span>
+                            <span class="signature-icon-set">🔒🖋️</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top: 15px; text-align: center; font-weight: bold; color: var(--sender); font-size: 1.1em;">
+                👇 以下の3点セットを相手に送ります！
+            </div>
+        </div>
+    </div>
+
+    <div class="card role-network">
+        <h2><span class="step-badge">3</span> インターネット（配送中...）</h2>
+        <p>データがネットワークを流れていきます。</p>
+
+        <div class="transit-container">
+            <div class="transit-item">
+                <span class="transit-big-icon">📄</span>
+                <label>1. メッセージ</label>
+                <textarea id="transit-message" rows="4" style="font-size: 0.9em;"></textarea>
+            </div>
+            
+            <div class="transit-item" style="background: #fdf2f8;">
+                <span class="transit-big-icon">🔒🖋️</span>
+                <label>2. デジタル署名</label>
+                
+                <div style="display: flex; align-items: center; justify-content: center; margin-top: 15px;">
+                    <input type="text" id="transit-signature" style="text-align:right; font-weight:bold; font-size: 1.5em; width: 70%;">
+                    <span style="font-size: 2.5em; margin-left: 5px;">🔒</span>
+                </div>
+                
+                <div style="font-size: 0.8em; color: #666; margin-top: 5px; text-align: left;">※秘密鍵による暗号</div>
+            </div>
+
+            <div class="transit-item" style="background: #f0f9ff; border-color: var(--cert-border);">
+                <span class="transit-big-icon">🏛️</span>
+                <label>3. 電子証明書</label>
+                <div style="font-size: 0.8em; text-align: center; line-height: 1.4; margin-top: 5px;">
+                    <strong>🔑 公開鍵入り</strong><br>
+                    <span style="background: #fff; border:1px solid #ccc; padding:2px 4px; border-radius:3px; display:inline-block; margin-top:5px;">
+                        e=<span id="transit-e">?</span>, n=<span id="transit-n">?</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 15px;">
+            <button class="btn-hacker" onclick="tamperMessage()">😈 メッセージを改ざんする</button>
+            <p style="font-size: 0.8em; margin-top: 5px;">（ボタンを押すと「メッセージ」だけが書き換わります）</p>
+        </div>
+    </div>
+
+    <div class="card role-receiver">
+        <h2><span class="step-badge">4</span> 受信者: 検証（答え合わせ）</h2>
+        <p>届いた「電子証明書」の中にある公開鍵を使って、署名を検証します。</p>
+
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; background: #e0e7ff; padding: 10px; border-radius: 6px;">
+            <span style="font-size: 2em;">🪪</span>
+            <div style="font-size: 0.9em;">
+                <strong>証明書の確認:</strong><br>
+                「これはXYZ局が発行した『くま』の証明書だ。<br>
+                この中の公開鍵(🔑 e=<strong id="verify-e" style="color:#0369a1;">?</strong>)を使ってチェックしよう！」
+            </div>
+        </div>
+
+        <button class="btn-receiver" onclick="verifySignature()">署名を検証する 🔍</button>
+
+        <div id="verify-process" style="display: none;">
+            <div class="visual-verification">
+                
+                <div class="verify-col left">
+                    <span class="verify-icon">📄</span>
+                    <div class="verify-top-label">届いたメッセージ</div>
+                    
+                    <div class="process-arrow">⬇</div>
+                    
+                    <div class="action-badge bg-hash">
+                        <div class="badge-icon-circle">🌀</div>
+                        <span>ハッシュ化</span>
+                    </div>
+
+                    <div class="process-arrow">⬇</div>
+                    
+                    <div class="verify-result-box" id="calc-hash-recv">---</div>
+                    
+                    <div style="text-align: center;">
+                        <span style="font-size: 3.5em; display: block; margin-bottom: 5px;">📦</span>
+                        <div style="font-weight: bold; font-size: 1.3em;">今の箱 (A)</div>
+                    </div>
+                </div>
+
+                <div class="comparison-center">
+                    <div style="font-size:4em; line-height:1;" id="compare-icon">=</div>
+                    <div style="font-size:1em; color:#666; margin-top:10px;">比較</div>
+                </div>
+
+                <div class="verify-col right">
+                    <span class="verify-icon">🔒🖋️</span>
+                    <div class="verify-top-label">届いた署名</div>
+                    
+                    <div class="process-arrow">⬇</div>
+                    
+                    <div class="action-badge bg-decrypt">
+                        <div class="badge-icon-circle">🔑</div>
+                        <span>公開鍵で復号</span>
+                    </div>
+
+                    <div class="process-arrow">⬇</div>
+                    
+                    <div class="verify-result-box" id="decrypted-hash">---</div>
+                    
+                    <div style="text-align: center;">
+                        <span style="font-size: 3.5em; display: block; margin-bottom: 5px;">📦</span>
+                        <div style="font-weight: bold; font-size: 1.3em;">元の箱 (B)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="final-judgment" class="final-judgment"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- RSA計算用ユーティリティ (BigInt対応) ---
+    let keys = { n: 0n, e: 0n, d: 0n };
+
+    function gcd(a, b) { return b === 0n ? a : gcd(b, a % b); }
+
+    function modInverse(e, phi) {
+        let m0 = phi, y = 0n, x = 1n;
+        if (phi === 1n) return 0n;
+        while (e > 1n) {
+            let q = e / phi;
+            let t = phi; phi = e % phi; e = t;
+            t = y; y = x - q * y; x = t;
+        }
+        if (x < 0n) x += m0;
+        return x;
+    }
+
+    function modPow(base, exp, mod) {
+        let res = 1n;
+        base = base % mod;
+        while (exp > 0n) {
+            if (exp % 2n === 1n) res = (res * base) % mod;
+            base = (base * base) % mod;
+            exp /= 2n;
+        }
+        return res;
+    }
+
+    function isPrime(num) {
+        if (num <= 1) return false;
+        for(let i=2; i*i <= num; i++) if(num % i === 0) return false;
+        return true;
+    }
+
+    // 簡易ハッシュ関数
+    function simpleHash(str, n) {
+        let sum = 0n;
+        for (let i = 0; i < str.length; i++) {
+            sum += BigInt(str.charCodeAt(i));
+        }
+        return sum % n; 
+    }
+
+    // --- アプリケーションロジック ---
+
+    function generateKeys() {
+        const pVal = parseInt(document.getElementById('p-val').value);
+        const qVal = parseInt(document.getElementById('q-val').value);
+
+        if (!isPrime(pVal) || !isPrime(qVal) || pVal === qVal) {
+            alert("pとqは異なる素数を指定してください");
+            return;
+        }
+
+        const p = BigInt(pVal);
+        const q = BigInt(qVal);
+        keys.n = p * q;
+        const phi = (p - 1n) * (q - 1n);
+
+        let e = 3n;
+        while (gcd(e, phi) !== 1n) e += 2n;
+        keys.e = e;
+        keys.d = modInverse(e, phi);
+
+        // UI更新
+        document.getElementById('priv-key-d').innerText = keys.d;
+        document.getElementById('priv-key-n').innerText = keys.n;
+        document.getElementById('pub-key-e').innerText = keys.e;
+        document.getElementById('pub-key-n').innerText = keys.n;
+        document.getElementById('transit-e').innerText = keys.e;
+        document.getElementById('transit-n').innerText = keys.n;
+        document.getElementById('verify-e').innerText = keys.e;
+
+        document.getElementById('key-display').style.display = 'block';
+        resetSteps();
+    }
+
+    function signMessage() {
+        if (keys.n === 0n) { alert("まずはStep1で鍵を作成してください"); return; }
+        
+        const msg = document.getElementById('message-input').value;
+        if (!msg) { alert("メッセージを入力してください"); return; }
+
+        const hashVal = simpleHash(msg, keys.n);
+        const signature = modPow(hashVal, keys.d, keys.n);
+
+        document.getElementById('msg-hash').innerText = hashVal;
+        document.getElementById('digital-signature').innerText = signature;
+        document.getElementById('sign-result').style.display = 'block';
+
+        document.getElementById('transit-message').value = msg;
+        document.getElementById('transit-signature').value = signature;
+        
+        resetVerificationUI();
+    }
+
+    function tamperMessage() {
+        const currentMsg = document.getElementById('transit-message').value;
+        if (!currentMsg) return;
+
+        document.getElementById('transit-message').value = "金払え！すぐ払え！くまより";
+        
+        alert("😈 メッセージを改ざんしました！\n（署名と証明書はそのままです）");
+    }
+
+    function verifySignature() {
+        if (keys.n === 0n) return;
+
+        const receivedMsg = document.getElementById('transit-message').value;
+        const receivedSigStr = document.getElementById('transit-signature').value;
+
+        if (!receivedMsg || !receivedSigStr) {
+            alert("データが届いていません");
+            return;
+        }
+
+        const receivedSig = BigInt(receivedSigStr);
+        const calcHash = simpleHash(receivedMsg, keys.n);
+        const decryptedHash = modPow(receivedSig, keys.e, keys.n);
+
+        // UI更新
+        document.getElementById('verify-process').style.display = 'block';
+        document.getElementById('calc-hash-recv').innerText = calcHash;
+        document.getElementById('decrypted-hash').innerText = decryptedHash;
+
+        const resultDiv = document.getElementById('final-judgment');
+        const compareIcon = document.getElementById('compare-icon');
+        resultDiv.style.display = "block";
+
+        if (calcHash === decryptedHash) {
+            compareIcon.innerText = "＝";
+            compareIcon.style.color = "green";
+            resultDiv.className = "final-judgment judgment-ok";
+            resultDiv.innerHTML = `
+                <h3>✅ 検証成功（一致）</h3>
+                <p>このファイルは間違いなく「くま」からのもので、改ざんもされていません。</p>
+            `;
+        } else {
+            compareIcon.innerText = "≠";
+            compareIcon.style.color = "red";
+            resultDiv.className = "final-judgment judgment-ng";
+            resultDiv.innerHTML = `
+                <h3>❌ 検証失敗（不一致）</h3>
+                <p>ファイルの内容が改ざんされたか、署名が偽物です。</p>
+            `;
+        }
+    }
+
+    function resetSteps() {
+        document.getElementById('sign-result').style.display = 'none';
+        document.getElementById('transit-message').value = "";
+        document.getElementById('transit-signature').value = "";
+        resetVerificationUI();
+    }
+
+    function resetVerificationUI() {
+        document.getElementById('verify-process').style.display = 'none';
+        document.getElementById('final-judgment').style.display = 'none';
+        document.getElementById('compare-icon').innerText = "❓";
+        document.getElementById('compare-icon').style.color = "black";
+    }
+</script>
+
+</body>
+</html>
