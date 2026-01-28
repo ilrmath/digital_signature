@@ -490,7 +490,7 @@
         
         await wait(2000); 
 
-        document.getElementById('proc-1').innerHTML = `${createItemHTML('i-hash fade-in', '📦', 'ハッシュ値', '要約', 'temp-hash')}`;
+        document.getElementById('proc-1').innerHTML = `${createItemHTML('i-hash fade-in', '📦', 'ハッシュ値', '要約文', 'temp-hash')}`;
         
         await blinkMsg("変換完了！「ハッシュ値」ができました。（ファイルの指紋のようなものです）");
         await wait(2000); 
@@ -503,7 +503,7 @@
 
         ws.innerHTML = `
             <div class="process-stage visible" id="proc-2">
-                ${createItemHTML('i-hash', '📦', 'ハッシュ', '要約')}
+                ${createItemHTML('i-hash', '📦', 'ハッシュ', '要約文')}
                 <div class="proc-plus">+</div>
                 <div class="placeholder" id="ph-s-priv"></div>
                 <div class="proc-arrow">➡</div>
